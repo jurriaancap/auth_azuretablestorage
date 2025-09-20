@@ -1,6 +1,6 @@
 from azure.core.credentials import AzureSasCredential
 from azure.core.exceptions import AzureError
-from azure.data.tables import TableServiceClient
+from azure.data.tables import TableServiceClient, TableEntity
 
 
 def connect_to_table(table_name, sas_token, endpoint):
@@ -17,3 +17,41 @@ def connect_to_table(table_name, sas_token, endpoint):
         raise RuntimeError(
             f"Failed to connect to Azure Table Storage or create table '{table_name}': {e}"
         )
+
+
+def set_entity(table_name, row_key, **fields):
+    """
+    Create a standardized TableEntity for any table.
+    """
+    entity = TableEntity(
+        PartitionKey=table_name,
+        RowKey=row_key,
+        **fields
+    )
+    return entity
+
+
+def insert_entity(table_client, table_name, row_key, **fields):
+    try:
+        entity = set_entity(table_name, row_key, **fields)
+        table_client.upsert_entity(entity=entity)
+    except AzureError as e:
+        raise RuntimeError(f"Azure Table Storage error during insert: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to insert entity: {e}")
+
+def get_entity(table_client, table_name, row_key):
+    try:
+        return table_client.get_entity(partition_key=table_name, row_key=row_key)
+    except AzureError as e:
+        # Entity not found or other Azure error
+        return None
+    except Exception as e:
+        # Log or handle unexpected errors
+        return None
+
+def entity_exists(table_client, table_name, row_key):
+    try:
+        return get_entity(table_client, table_name, row_key) is not None
+    except Exception as e:
+        raise RuntimeError(f"Failed to check if entity exists: {e}")

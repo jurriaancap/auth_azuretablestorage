@@ -36,6 +36,7 @@ Follow the official Microsoft Learn guide:
 ### 3. Set up environment variables
 
 Create a `.env` file in the project root with the following variables:
+See .env_example for a example , customize to youre need 
 
 ```
 JWT_SECRET=your_jwt_secret

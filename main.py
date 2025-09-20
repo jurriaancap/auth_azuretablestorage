@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from auth.helpers import b64e, b64d, create_jwt_token, decode_jwt_token
 
-from auth.db_helpers import connect_to_table
+from auth.db_helpers import connect_to_table, set_entity, entity_exists, insert_entity, get_entity
 
 from auth.config import (
     ## import the variables from config.py 
@@ -35,11 +35,7 @@ app = FastAPI(
 
 
 def user_exists(email: str) -> bool:
-    try:
-        users_client.get_entity(partition_key=USERS_TABLE_NAME, row_key=email)
-        return True
-    except Exception:
-        return False
+    return entity_exists(users_client, USERS_TABLE_NAME, email)
 
 
 @app.get("/")
@@ -57,17 +53,12 @@ def register_user(user: UserCreate):
     email = user.email.lower()
     password = user.password
 
-    if user_exists(email):
+    if entity_exists(users_client, USERS_TABLE_NAME, email):
         raise HTTPException(status_code=400, detail="Deze email is al in gebruik.")
 
     try:
-        password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-        entity = TableEntity(
-            PartitionKey=USERS_TABLE_NAME,
-            RowKey=email,
-            password_hash=b64e(password_hash),
-        )
-        users_client.upsert_entity(entity=entity)
+        password_hash = b64e(bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()))
+        insert_entity(users_client, USERS_TABLE_NAME, email, password_hash=password_hash)
         return {"message": "Gebruiker succesvol aangemaakt."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fout bij aanmaken gebruiker: {e}")
@@ -78,24 +69,19 @@ def login_user(user: UserLogin):
     email = user.email.lower()
     password = user.password
 
-    try:
-        entity = users_client.get_entity(partition_key=USERS_TABLE_NAME, row_key=email)
-        stored_hash = b64d(entity["password_hash"])
-        if not bcrypt.checkpw(password.encode("utf-8"), stored_hash):
-            raise HTTPException(
-                status_code=401, detail="Ongeldige gebruikersnaam of wachtwoord."
-            )
-        # JWT token aanmaken
-        token_data = {"email": email}
-        access_token = create_jwt_token(token_data, JWT_EXP_MINUTES)
-        refresh_token = create_jwt_token(token_data, REFRESH_TOKEN_EXP_MINUTES)
-        return LoginResponse(access_token=access_token, refresh_token=refresh_token)
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(
-            status_code=401, detail="Ongeldige gebruikersnaam of wachtwoord."
-        )
+    entity = get_entity(users_client, USERS_TABLE_NAME, email)
+    if not entity:
+        raise HTTPException(status_code=401, detail="Ongeldige gebruikersnaam of wachtwoord.")
+
+    stored_hash = b64d(entity["password_hash"])
+    if not bcrypt.checkpw(password.encode("utf-8"), stored_hash):
+        raise HTTPException(status_code=401, detail="Ongeldige gebruikersnaam of wachtwoord.")
+
+    token_data = {"email": email}
+    access_token = create_jwt_token(token_data, JWT_EXP_MINUTES)
+    refresh_token = create_jwt_token(token_data, REFRESH_TOKEN_EXP_MINUTES)
+    return LoginResponse(access_token=access_token, refresh_token=refresh_token)
+
 
 @app.post("/refresh_token", summary="Refresh the JWT access token using the refresh token")
 async def refresh_token_endpoint(data: RefreshRequest):
