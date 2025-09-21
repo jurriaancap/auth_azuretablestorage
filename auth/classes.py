@@ -36,6 +36,7 @@ class RefreshRequest(BaseModel):
 
 
 
-
+class UserDeleteRequest(BaseModel):
+    password: str
 
 

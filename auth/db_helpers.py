@@ -31,6 +31,15 @@ def set_entity(table_name, row_key, **fields):
     return entity
 
 
+def delete_entity(table_client, table_name, row_key):
+    try:
+        table_client.delete_entity(partition_key=table_name,row_key=row_key)
+        return True
+    except Exception:
+        return False
+    
+
+
 def insert_entity(table_client, table_name, row_key, **fields):
     try:
         entity = set_entity(table_name, row_key, **fields)
