@@ -7,11 +7,9 @@ certifi==2025.8.3
 charset-normalizer==3.4.3
 click==8.2.1
 dnspython==2.7.0
-dotenv==0.9.9
 email-validator==2.2.0
 fastapi==0.116.1
-git-filter-repo==2.47.0
-h11==0.16.0
+howh11==0.16.0
 idna==3.10
 isodate==0.7.2
 multidict==6.6.4
