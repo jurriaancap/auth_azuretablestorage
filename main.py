@@ -20,7 +20,7 @@ from auth.config import (
 
 )
 
-## from auth/classes.py import the classes
+## from auth/classes.py import the defined classes from the file
 from auth.classes import UserCreate, UserLogin, RefreshRequest, LoginResponse ,UserDeleteRequest
 
 
