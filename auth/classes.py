@@ -1,9 +1,30 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
 
 
 # --- Pydantic Models ---
+# Response after registering MFA
+class MFARegisterResponse(BaseModel):
+    qr_base64: str
+    provisioning_uri: str
+    message: str = "MFA secret generated successfully. Please verify with your authenticator app."
 
+# Request to setup MFA (requires password re-authentication)
+class MFARegisterRequest(BaseModel):
+    password: str  # User must re-enter password for security
+
+# Request to verify MFA code during setup
+class MFAVerifyRequest(BaseModel):
+    password: str  # Password required for decryption
+    code: str      # TOTP code from authenticator app
+
+# Request to validate MFA for existing users
+class MFAValidateRequest(BaseModel):
+    password: str  # Password required to decrypt stored secret
+    code: str      # TOTP code from authenticator app
+
+# Response after successful verification
+class MFAVerifyResponse(BaseModel):
+    message: str = "MFA verified successfully"
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -24,6 +45,7 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    code: str | None = None ## 
 
 
 class LoginResponse(BaseModel):
@@ -33,7 +55,6 @@ class LoginResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
-
 
 
 class UserDeleteRequest(BaseModel):

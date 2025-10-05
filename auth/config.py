@@ -7,6 +7,7 @@ load_dotenv()
 # --- Configuratie ---
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", JWT_SECRET)  # Use JWT_SECRET as fallback for TOTP encryption
 SAS_TOKEN = os.getenv("AZURE_TABLE_CONN_STRING")
 ENDPOINT = os.getenv("AZURE_TABLE_ENDPOINT")
 USERS_TABLE_NAME = os.getenv("USERS_TABLE_NAME", "Users")

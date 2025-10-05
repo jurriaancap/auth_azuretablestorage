@@ -1,10 +1,8 @@
 import base64
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Cipher import AES
-
 import jwt
 from datetime import datetime, timedelta, timezone
-
 from auth.config import JWT_SECRET, JWT_ALGORITHM
 
 
