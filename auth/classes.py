@@ -52,6 +52,7 @@ class UserLogin(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
+    mfa_required: bool = False
 
 
 class RefreshRequest(BaseModel):
@@ -60,5 +61,10 @@ class RefreshRequest(BaseModel):
 
 class UserDeleteRequest(BaseModel):
     password: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
