@@ -49,13 +49,28 @@ def insert_entity(table_client, table_name, row_key, **fields):
     except Exception as e:
         raise RuntimeError(f"Failed to insert entity: {e}")
 
+
+def update_entity(table_client, existing_entity, **new_fields):
+    """
+    Update an existing entity with new fields.
+    """
+    try:
+        # Update the existing entity with new fields
+        for key, value in new_fields.items():
+            existing_entity[key] = value
+        table_client.upsert_entity(entity=existing_entity)
+    except AzureError as e:
+        raise RuntimeError(f"Azure Table Storage error during update: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to update entity: {e}")
+
 def get_entity(table_client, table_name, row_key):
     try:
         return table_client.get_entity(partition_key=table_name, row_key=row_key)
-    except AzureError as e:
+    except AzureError:
         # Entity not found or other Azure error
         return None
-    except Exception as e:
+    except Exception:
         # Log or handle unexpected errors
         return None
 

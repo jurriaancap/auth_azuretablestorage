@@ -1,10 +1,9 @@
 import base64
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Cipher import AES
-
 import jwt
+import bcrypt
 from datetime import datetime, timedelta, timezone
-
 from auth.config import JWT_SECRET, JWT_ALGORITHM
 
 
@@ -46,3 +45,28 @@ def create_jwt_token(data: dict, exp_minutes: int) -> str:
 
 def decode_jwt_token(token: str) -> dict:
     return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+
+
+def verify_user_password(email: str, password: str, users_client, table_name: str) -> bool:
+    """Verify a user's password against stored hash"""
+    from auth.db_helpers import get_entity
+    
+    user_entity = get_entity(users_client, table_name, email)
+    if not user_entity:
+        return False
+    
+    stored_hash = b64d(user_entity["password_hash"])
+    return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
+
+
+def verify_user_password_with_entity(email: str, password: str, users_client, table_name: str) -> tuple[bool, dict | None]:
+    """Verify a user's password against stored hash and return both result and user entity"""
+    from auth.db_helpers import get_entity
+    
+    user_entity = get_entity(users_client, table_name, email)
+    if not user_entity:
+        return False, None
+    
+    stored_hash = b64d(user_entity["password_hash"])
+    is_valid = bcrypt.checkpw(password.encode("utf-8"), stored_hash)
+    return is_valid, user_entity
