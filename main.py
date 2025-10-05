@@ -4,9 +4,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime, timezone
 
 ## special import from my auth.helpers files
-from auth.helpers import b64e, b64d, create_jwt_token, decode_jwt_token, encrypt_with_key, decrypt_with_key, derive_key_from_password
+from auth.helpers import b64e, b64d, create_jwt_token, decode_jwt_token
 from auth.db_helpers import connect_to_table, entity_exists, insert_entity, get_entity, delete_entity, update_entity
-from auth.mfa import generate_totp_secret, generate_qr_base64, verify_totp_code
+from auth.mfa import generate_totp_secret, generate_qr_base64, verify_totp_code, encrypt_totp_secret_with_password, decrypt_totp_secret_with_password
 
 from auth.config import (
     ## import the variables from config.py 
@@ -29,32 +29,8 @@ from auth.classes import (
 users_client = connect_to_table(USERS_TABLE_NAME, SAS_TOKEN, ENDPOINT)
 
 
-# --- Helper Functions for TOTP Secret Encryption ---
-def encrypt_totp_secret_with_password(secret: str, password: str, email: str) -> str:
-    """Encrypt a TOTP secret using the user's password"""
-    # Use email as salt (unique per user)
-    salt = email.encode('utf-8')[:16].ljust(16, b'0')  # Ensure 16 bytes
-    key = derive_key_from_password(password, salt)
-    nonce, ciphertext, tag = encrypt_with_key(key, secret)
-    # Store as "nonce:ciphertext:tag" format
-    return f"{nonce}:{ciphertext}:{tag}"
-
-
-def decrypt_totp_secret_with_password(encrypted_secret: str, password: str, email: str) -> str:
-    """Decrypt a TOTP secret using the user's password"""
-    try:
-        # Check if it's encrypted (contains colons)
-        if ":" not in encrypted_secret:
-            # Probably an old unencrypted secret - return as is for backward compatibility
-            return encrypted_secret
-            
-        nonce, ciphertext, tag = encrypted_secret.split(":")
-        # Use email as salt (same as encryption)
-        salt = email.encode('utf-8')[:16].ljust(16, b'0')  # Ensure 16 bytes
-        key = derive_key_from_password(password, salt)
-        return decrypt_with_key(key, nonce, ciphertext, tag)
-    except Exception as e:
-        raise ValueError(f"Failed to decrypt TOTP secret: {e}")
+# --- In-Memory Storage for Pending MFA Secrets ---
+pending_mfa_secrets = {}  # {email: encrypted_secret}
 
 
 def verify_user_password(email: str, password: str) -> bool:
@@ -134,14 +110,13 @@ def mfa_register(email: str, data: MFARegisterRequest, credentials: HTTPAuthoriz
     if user_entity.get("totp_secret"):
         raise HTTPException(status_code=400, detail="MFA is already enabled for this user")
 
-    # Check if MFA setup is already in progress
-    if user_entity.get("totp_secret_pending"):
-        raise HTTPException(status_code=400, detail="MFA setup already in progress. Please complete verification or start over.")
+    # If MFA setup is already in progress, just start over (clear previous attempt)
+    pending_mfa_secrets.pop(email, None)
 
-    # Generate TOTP secret and store it temporarily (encrypted)
+    # Generate TOTP secret and store it temporarily (in-memory, encrypted)
     secret = generate_totp_secret()
     encrypted_secret = encrypt_totp_secret_with_password(secret, data.password, email)
-    update_entity(users_client, user_entity, totp_secret_pending=encrypted_secret)
+    pending_mfa_secrets[email] = encrypted_secret  # Store in memory
     
     # Generate QR code for authenticator apps (but don't return the secret)
     qr_b64, uri = generate_qr_base64(secret, email, issuer="MyAuthApp")
@@ -171,24 +146,20 @@ def mfa_verify(email: str, data: MFAVerifyRequest, credentials: HTTPAuthorizatio
     if not user_entity:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Check if there's a pending MFA setup
-    encrypted_pending_secret = user_entity.get("totp_secret_pending")
-    if not encrypted_pending_secret:
-        raise HTTPException(status_code=400, detail="No MFA setup in progress. Please register MFA first.")
+    # Clear any existing pending MFA setup
+    pending_mfa_secrets.pop(email, None)
     
-    try:
-        # Decrypt the pending secret using the user's password
-        pending_secret = decrypt_totp_secret_with_password(encrypted_pending_secret, data.password, email)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error decrypting pending MFA secret")
+    # Check if MFA is already enabled
+    if user_entity.get("totp_secret"):
+        raise HTTPException(status_code=400, detail="MFA is already enabled for this user")
     
-    # Verify the TOTP code with the decrypted secret
-    if not verify_totp_code(pending_secret, data.code):
+    # Verify the TOTP code with the provided secret
+    if not verify_totp_code(data.secret, data.code):
         raise HTTPException(status_code=401, detail="Invalid MFA code")
-
-    # Code is valid! Move from pending to permanent and cleanup
-    encrypted_secret = encrypt_totp_secret_with_password(pending_secret, data.password, email)
-    update_entity(users_client, user_entity, totp_secret=encrypted_secret, totp_secret_pending=None)
+        
+    # Code is valid! Encrypt and store permanently
+    encrypted_secret = encrypt_totp_secret_with_password(data.secret, data.password, email)
+    update_entity(users_client, user_entity, totp_secret=encrypted_secret)
 
     return MFAVerifyResponse(message="MFA has been successfully enabled for your account")
 
@@ -260,34 +231,6 @@ def mfa_status(email: str, credentials: HTTPAuthorizationCredentials = Depends(o
     mfa_enabled = bool(user_entity.get("totp_secret"))
     return {"mfa_enabled": mfa_enabled}
 
-
-@app.delete(
-    "/users/{email}/mfa/setup",
-    summary="Cancel MFA setup in progress"
-)
-def mfa_cancel_setup(email: str, credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme)):
-    """
-    Cancel MFA setup that's in progress (clears pending secret).
-    """
-    email = email.lower()
-    token = credentials.credentials
-    try:
-        token_data = decode_jwt_token(token)
-        if token_data.get("email") != email:
-            raise HTTPException(status_code=403, detail="Can only cancel MFA setup for your own account")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user_entity = get_entity(users_client, USERS_TABLE_NAME, email)
-    if not user_entity:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    if not user_entity.get("totp_secret_pending"):
-        raise HTTPException(status_code=400, detail="No MFA setup in progress")
-    
-    # Clear the pending secret
-    update_entity(users_client, user_entity, totp_secret_pending=None)
-    return {"message": "MFA setup cancelled. You can start over by registering again."}
 
 @app.delete("/users/{email}", status_code=204)
 def delete_user(email: str, data: UserDeleteRequest, credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())):

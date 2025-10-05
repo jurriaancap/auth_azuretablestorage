@@ -14,7 +14,8 @@ class MFARegisterRequest(BaseModel):
 
 # Request to verify MFA code during setup
 class MFAVerifyRequest(BaseModel):
-    password: str  # Password required for decryption
+    password: str  # Password required for encryption/decryption
+    secret: str    # Secret from registration response
     code: str      # TOTP code from authenticator app
 
 # Request to validate MFA for existing users

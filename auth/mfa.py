@@ -4,6 +4,7 @@ import qrcode.image.pil
 from io import BytesIO
 from base64 import b64encode
 from typing import Tuple
+from auth.helpers import derive_key_from_password, encrypt_with_key, decrypt_with_key
 
 
 def generate_totp_secret() -> str:
@@ -54,5 +55,27 @@ def verify_totp_code(secret: str, code: str) -> bool:
     """
     totp = pyotp.TOTP(secret)
     return totp.verify(code)
+
+
+def encrypt_totp_secret_with_password(secret: str, password: str, email: str) -> str:
+    """Encrypt a TOTP secret using the user's password"""
+    # Use email as salt (unique per user)
+    salt = email.encode('utf-8')[:16].ljust(16, b'0')  # Ensure 16 bytes
+    key = derive_key_from_password(password, salt)
+    nonce, ciphertext, tag = encrypt_with_key(key, secret)
+    # Store as "nonce:ciphertext:tag" format
+    return f"{nonce}:{ciphertext}:{tag}"
+
+
+def decrypt_totp_secret_with_password(encrypted_secret: str, password: str, email: str) -> str:
+    """Decrypt a TOTP secret using the user's password"""
+    try:
+        nonce, ciphertext, tag = encrypted_secret.split(":")
+        # Use email as salt (same as encryption)
+        salt = email.encode('utf-8')[:16].ljust(16, b'0')  # Ensure 16 bytes
+        key = derive_key_from_password(password, salt)
+        return decrypt_with_key(key, nonce, ciphertext, tag)
+    except Exception as e:
+        raise ValueError(f"Failed to decrypt TOTP secret: {e}")
 
 
