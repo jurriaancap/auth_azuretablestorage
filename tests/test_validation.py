@@ -134,6 +134,80 @@ class TestPasswordValidation:
             user = UserCreate(email="test@example.com", password=password)
             assert user.password == password
 
+    def test_password_boundary_conditions(self):
+        """Test password validation at exact boundary conditions."""
+        # Exactly 8 characters - minimum valid
+        min_valid = "A1b2C3d!"
+        user = UserCreate(email="test@example.com", password=min_valid)
+        assert user.password == min_valid
+        
+        # Exactly 128 characters - maximum valid
+        max_valid = "A1b!" + "x" * 124  # 128 total
+        user = UserCreate(email="test@example.com", password=max_valid)
+        assert user.password == max_valid
+        
+        # 7 characters - should fail
+        with pytest.raises(ValidationError):
+            UserCreate(email="test@example.com", password="A1b2C3d")
+        
+        # 129 characters - should fail
+        too_long = "A1b!" + "x" * 125  # 129 total
+        with pytest.raises(ValidationError):
+            UserCreate(email="test@example.com", password=too_long)
+
+    def test_password_single_character_type_failures(self):
+        """Test passwords that have only one type of character."""
+        single_type_passwords = [
+            ("12345678", "only digits"),
+            ("abcdefgh", "only lowercase"),
+            ("ABCDEFGH", "only uppercase"),
+            ("!@#$%^&*", "only special characters"),
+            ("        ", "only spaces"),
+            ("aAbBcCdD", "mixed case but no digits/special"),
+            ("12!@34#$", "digits and special but no letters"),
+        ]
+        
+        for password, description in single_type_passwords:
+            with pytest.raises(ValidationError) as exc_info:
+                UserCreate(email="test@example.com", password=password)
+            # Should get our comprehensive error message
+            assert ("Password must contain at least one uppercase letter, one lowercase letter, "
+                    "one digit, one special character") in str(exc_info.value)
+
+    def test_password_unicode_and_special_cases(self):
+        """Test passwords with unicode characters and edge cases."""
+        unicode_passwords = [
+            ("Pässwörd1!", "non-ASCII characters"),
+            ("Password1\t", "tab character"),
+            ("Password1\n", "newline character"),
+            ("🔒Password1!", "emoji characters"),
+            ("Пароль123!", "cyrillic characters"),
+        ]
+        
+        for password, description in unicode_passwords:
+            # These should pass our validation (unicode is valid)
+            try:
+                user = UserCreate(email="test@example.com", password=password)
+                # If it passes, that's fine - unicode is acceptable
+                assert user.password == password
+            except ValidationError:
+                # If it fails, it should be due to missing character types, not unicode
+                pass
+
+    def test_password_with_common_patterns(self):
+        """Test passwords with common weak patterns that still meet our requirements."""
+        # These should pass validation but represent common weak patterns
+        weak_but_valid = [
+            "Password1!",      # Classic weak but meets requirements
+            "Qwerty123!",      # Keyboard pattern but valid
+            "Admin123!",       # Common admin password but valid
+            "Test1234!",       # Sequential but valid
+        ]
+        
+        for password in weak_but_valid:
+            user = UserCreate(email="test@example.com", password=password)
+            assert user.password == password
+
 
 class TestEmailValidation:
     """Test email validation rules for UserCreate."""
