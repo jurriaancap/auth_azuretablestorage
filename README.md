@@ -283,7 +283,7 @@ MIT License - see LICENSE file for details.
 
 For questions, issues, or feature requests:
 - **Open an issue** on GitHub
-- **Check the documentation** in `/docs`
+- **Check the API documentation** at `http://localhost:8000/docs` (when running)
 - **Review test examples** in `/tests`
 
 ---
