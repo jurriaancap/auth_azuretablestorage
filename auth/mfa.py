@@ -48,14 +48,16 @@ def generate_qr_base64(secret: str, account_name: str, issuer: str = "MyApp") ->
     return b64, uri
 
 
-def verify_totp_code(secret: str, code: str) -> bool:
+def verify_totp_code(secret: str, code: str, valid_window: int = 1) -> bool:
     """
     Verify a TOTP code against the secret.
     Returns True if the code is valid, False otherwise.
+
+    By default accepts previous/current/next time-steps (valid_window=1) to
+    improve user experience with small clock skew or delays.
     """
     totp = pyotp.TOTP(secret)
-    return totp.verify(code)
-
+    return totp.verify(code, valid_window=valid_window)
 
 def encrypt_totp_secret_with_password(secret: str, password: str, email: str) -> str:
     """Encrypt a TOTP secret using the user's password"""

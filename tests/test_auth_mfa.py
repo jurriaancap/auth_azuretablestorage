@@ -51,7 +51,7 @@ class TestTOTPFunctions:
         
         assert result is True
         mock_totp_class.assert_called_once_with("TESTSECRET")
-        mock_totp.verify.assert_called_once_with("123456")
+        mock_totp.verify.assert_called_once_with("123456", valid_window=1)
     
     @patch('auth.mfa.pyotp.TOTP')
     def test_verify_totp_code_failure(self, mock_totp_class):
@@ -60,9 +60,10 @@ class TestTOTPFunctions:
         mock_totp.verify.return_value = False
         mock_totp_class.return_value = mock_totp
         
-        result = verify_totp_code("TESTSECRET", "wrong_code")
-        
-        assert result is False
+    # Use a correctly-formatted 6-digit code so verify() is invoked
+    result = verify_totp_code("TESTSECRET", "000000")
+
+    assert result is False
 
 
 class TestMFAEncryption:
