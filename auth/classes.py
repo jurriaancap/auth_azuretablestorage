@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, Field
 import re
 
 
@@ -54,45 +54,23 @@ class UserBase(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
 
     @field_validator('password')
     @classmethod
-    def validate_password(cls, v):
-        """
-        Validate password meets security requirements:
-        - 8-128 characters (NIST recommended range)
-        - At least one uppercase letter
-        - At least one lowercase letter  
-        - At least one digit
-        - At least one special character
-        """
-        if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters long')
-        if len(v) > 128:
-            raise ValueError('Password must be no more than 128 characters long')
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('Password must contain at least one uppercase letter')
-        if not re.search(r'[a-z]', v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not re.search(r'\d', v):
-            raise ValueError('Password must contain at least one digit')
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
-            raise ValueError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)')
-        return v
-
-    @field_validator('email')
-    @classmethod
-    def validate_email(cls, v):
-        """
-        Additional email validation beyond EmailStr
-        """
-        email_str = str(v)
-        if len(email_str) > 254:  # RFC 5321 limit
-            raise ValueError('Email address is too long (max 254 characters)')
-        if '..' in email_str:
-            raise ValueError('Email address cannot contain consecutive dots')
-        return v
+    def validate_password_complexity(cls, v):
+        """Validate password meets all security requirements."""
+        if (len(v) >= 8 and len(v) <= 128 and 
+            re.search(r'[A-Z]', v) and 
+            re.search(r'[a-z]', v) and 
+            re.search(r'\d', v) and 
+            re.search(r'[!@#$%^&*(),.?":{}|<>]', v)):
+            return v
+        
+        raise ValueError(
+            "Password must contain at least one uppercase letter, one lowercase letter, "
+            "one digit, one special character (!@#$%^&*(),.?\":{}|<>), and be between 8-128 characters long."
+        )
 
 
 class UserLogin(BaseModel):
@@ -125,31 +103,22 @@ class UserDeleteRequest(BaseModel):
 
 class PasswordChangeRequest(BaseModel):
     current_password: str
-    new_password: str
+    new_password: str = Field(min_length=8, max_length=128)
 
     @field_validator('new_password')
     @classmethod
-    def validate_new_password(cls, v):
-        """
-        Validate new password meets security requirements:
-        - 8-128 characters (NIST recommended range)
-        - At least one uppercase letter
-        - At least one lowercase letter  
-        - At least one digit
-        - At least one special character
-        """
-        if len(v) < 8:
-            raise ValueError('New password must be at least 8 characters long')
-        if len(v) > 128:
-            raise ValueError('New password must be no more than 128 characters long')
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('New password must contain at least one uppercase letter')
-        if not re.search(r'[a-z]', v):
-            raise ValueError('New password must contain at least one lowercase letter')
-        if not re.search(r'\d', v):
-            raise ValueError('New password must contain at least one digit')
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
-            raise ValueError('New password must contain at least one special character (!@#$%^&*(),.?":{}|<>)')
-        return v
+    def validate_new_password_complexity(cls, v):
+        """Validate new password meets all security requirements."""
+        if (len(v) >= 8 and len(v) <= 128 and 
+            re.search(r'[A-Z]', v) and 
+            re.search(r'[a-z]', v) and 
+            re.search(r'\d', v) and 
+            re.search(r'[!@#$%^&*(),.?":{}|<>]', v)):
+            return v
+        
+        raise ValueError(
+            "New password must contain at least one uppercase letter, one lowercase letter, "
+            "one digit, one special character (!@#$%^&*(),.?\":{}|<>), and be between 8-128 characters long."
+        )
 
 

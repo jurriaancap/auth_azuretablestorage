@@ -31,7 +31,7 @@ class TestAuthenticationEndpoints:
         
         response = client.post("/users/", json={
             "email": "test@example.com",
-            "password": "testpassword123"
+            "password": "TestPassword123!"
         })
         
         assert response.status_code == 201
@@ -46,7 +46,7 @@ class TestAuthenticationEndpoints:
         
         response = client.post("/users/", json={
             "email": "existing@example.com",
-            "password": "testpassword123"
+            "password": "TestPassword123!"
         })
         
         assert response.status_code == 400
@@ -73,7 +73,7 @@ class TestMFAEndpoints:
         
         response = client.post(
             "/users/test@example.com/mfa/register",
-            json={"password": "testpassword123"},
+            json={"password": "TestPassword123!"},
             headers={"Authorization": "Bearer valid_token"}
         )
         
@@ -117,7 +117,7 @@ class TestLoginEndpoint:
         
         response = client.post("/login/", json={
             "email": "test@example.com",
-            "password": "testpassword123"
+            "password": "TestPassword123!"
         })
         
         assert response.status_code == 200
@@ -147,7 +147,7 @@ class TestLoginEndpoint:
         
         response = client.post("/login/", json={
             "email": "test@example.com",
-            "password": "testpassword123",
+            "password": "TestPassword123!",
             "code": "123456"
         })
         
@@ -170,7 +170,7 @@ class TestLoginEndpoint:
         
         response = client.post("/login/", json={
             "email": "test@example.com",
-            "password": "testpassword123"
+            "password": "TestPassword123!"
             # Missing "code" field
         })
         
@@ -200,8 +200,8 @@ class TestPasswordChange:
         response = client.post(
             "/users/test@example.com/change-password",
             json={
-                "current_password": "oldpassword",
-                "new_password": "newpassword"
+                "current_password": "OldPassword123!",
+                "new_password": "NewPassword456!"
             },
             headers={"Authorization": "Bearer valid_token"}
         )
@@ -233,8 +233,8 @@ class TestPasswordChange:
         response = client.post(
             "/users/test@example.com/change-password",
             json={
-                "current_password": "oldpassword",
-                "new_password": "newpassword"
+                "current_password": "OldPassword123!",
+                "new_password": "NewPassword456!"
             },
             headers={"Authorization": "Bearer valid_token"}
         )

@@ -33,7 +33,7 @@ class TestFullAuthenticationFlow:
         
         register_response = client.post("/users/", json={
             "email": "newuser@example.com",
-            "password": "securepassword123"
+            "password": "SecurePassword123!"
         })
         assert register_response.status_code == 201
         
@@ -46,7 +46,7 @@ class TestFullAuthenticationFlow:
         
         mfa_register_response = client.post(
             "/users/newuser@example.com/mfa/register",
-            json={"password": "securepassword123"},
+            json={"password": "SecurePassword123!"},
             headers={"Authorization": "Bearer valid_token"}
         )
         assert mfa_register_response.status_code == 200
@@ -58,7 +58,7 @@ class TestFullAuthenticationFlow:
         mfa_verify_response = client.post(
             "/users/newuser@example.com/mfa/verify",
             json={
-                "password": "securepassword123",
+                "password": "SecurePassword123!",
                 "secret": "NEWSECRET123",
                 "code": "123456"
             },
@@ -79,7 +79,7 @@ class TestFullAuthenticationFlow:
         
         login_response = client.post("/login/", json={
             "email": "newuser@example.com",
-            "password": "securepassword123",
+            "password": "SecurePassword123!",
             "code": "654321"
         })
         assert login_response.status_code == 200
@@ -119,8 +119,8 @@ class TestPasswordChangeFlow:
         response = client.post(
             "/users/user@example.com/change-password",
             json={
-                "current_password": "oldpassword123",
-                "new_password": "newpassword456"
+                "current_password": "OldPassword123!",
+                "new_password": "NewPassword456!"
             },
             headers={"Authorization": "Bearer valid_token"}
         )
@@ -129,12 +129,12 @@ class TestPasswordChangeFlow:
         
         # Verify MFA secret was decrypted with old password
         mock_decrypt.assert_called_with(
-            "old_encrypted_secret", "oldpassword123", "user@example.com"
+            "old_encrypted_secret", "OldPassword123!", "user@example.com"
         )
         
         # Verify MFA secret was re-encrypted with new password  
         mock_encrypt.assert_called_with(
-            "PRESERVED_SECRET", "newpassword456", "user@example.com"
+            "PRESERVED_SECRET", "NewPassword456!", "user@example.com"
         )
         
         # Verify both password and MFA secret were updated

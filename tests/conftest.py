@@ -26,7 +26,7 @@ def test_user_data():
     """Sample test user data."""
     return {
         "email": "test@example.com",
-        "password": "testpassword123",
+        "password": "TestPassword123!",
         "password_hash": "mock_bcrypt_hash"
     }
 
