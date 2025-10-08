@@ -237,16 +237,10 @@ def mfa_disable(email: str, data: UserDeleteRequest, credentials: HTTPAuthorizat
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Verify password and get user entity
+    # Verify pa sword and get user entity
     is_valid, user_entity = verify_user_password_with_entity(email, data.password, users_client, USERS_TABLE_NAME)
-    if not is_valid:
-        raise HTTPException(status_code=401, detail="Invalid password")
-
-    if not user_entity:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if not user_entity.get("totp_secret"):
-        raise HTTPException(status_code=400, detail="MFA is not enabled for this user")
+    if not is_valid or not user_entity or not user_entity.get("totp_secret"):
+        raise HTTPException(status_code=401, detail="Invalid credentials") 
 
     # Remove TOTP secret from database
     try:
@@ -273,12 +267,12 @@ def change_password(email: str, data: PasswordChangeRequest, credentials: HTTPAu
         if token_data.get("email") != email:
             raise HTTPException(status_code=403, detail="Can only change password for your own account")
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Get user entity
     user_entity = get_entity(users_client, USERS_TABLE_NAME, email)
     if not user_entity:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=401, detail="Invalid credentials ")
 
     # Verify current password
     stored_hash = b64d(user_entity["password_hash"])
