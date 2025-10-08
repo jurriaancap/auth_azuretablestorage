@@ -315,17 +315,17 @@ def delete_user(email: str, data: UserDeleteRequest, credentials: HTTPAuthorizat
         if token_data.get("email") != email:
             raise HTTPException(status_code=403, detail="You can only delete your own account.")
     except Exception:
-        raise HTTPException(status_code=401, detail="Not logged in or invalid token.")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Check if user exists
     entity = get_entity(users_client, USERS_TABLE_NAME, email)
     if not entity:
-        raise HTTPException(status_code=404, detail="User not found.")
+        raise HTTPException(status_code=404, detail="Invalid credentials")
 
     # Verify if password is the
     stored_hash = b64d(entity["password_hash"])
     if not bcrypt.checkpw(data.password.encode("utf-8"), stored_hash):
-        raise HTTPException(status_code=401, detail="Incorrect password.")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Delete user
     success = delete_entity(users_client, USERS_TABLE_NAME, email)
@@ -343,11 +343,11 @@ def login_user(user: UserLogin):
 
     entity = get_entity(users_client, USERS_TABLE_NAME, email)
     if not entity:
-        raise HTTPException(status_code=401, detail="Invalid username or password.")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     stored_hash = b64d(entity["password_hash"])
     if not bcrypt.checkpw(password.encode("utf-8"), stored_hash):
-        raise HTTPException(status_code=401, detail="Invalid username or password.")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Check if MFA is enabled for this user
     encrypted_secret = entity.get("totp_secret")
