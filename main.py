@@ -343,11 +343,11 @@ def login_user(user: UserLogin):
 
     entity = get_entity(users_client, USERS_TABLE_NAME, email)
     if not entity:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
     stored_hash = b64d(entity["password_hash"])
     if not bcrypt.checkpw(password.encode("utf-8"), stored_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
     # Check if MFA is enabled for this user
     encrypted_secret = entity.get("totp_secret")
